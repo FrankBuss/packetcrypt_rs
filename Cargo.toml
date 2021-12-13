@@ -29,6 +29,7 @@ clap = "2.33"
 num_cpus = "1.13"
 leak-detect-allocator = { version = "0.1", git = "https://github.com/cjdelisle/leak-detect-allocator", rev = "f8bcc56fdeb5ef74ed228e41fd6195dd2f368a90", optional = true }
 jemallocator = { version = "0.3.2", optional = true }
+ansi_term = "0.12"
 
 [features]
 leak_detect = ["leak-detect-allocator"]

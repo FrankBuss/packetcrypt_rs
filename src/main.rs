@@ -10,6 +10,9 @@ use packetcrypt_util::{poolclient, util};
 #[cfg(not(target_os = "windows"))]
 use tokio::signal::unix::{signal, SignalKind};
 
+#[cfg(target_os="windows")]
+use ansi_term;
+
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
@@ -283,6 +286,10 @@ fn version() -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // required on Windows to enable ANSI color codes
+    #[cfg(target_os="windows")]
+    ansi_term::enable_ansi_support();
+
     let cpus_str = format!("{}", num_cpus::get());
     let matches = App::new("packetcrypt")
         .version(version())

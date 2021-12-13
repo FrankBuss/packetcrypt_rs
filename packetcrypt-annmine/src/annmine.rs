@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: (LGPL-2.1-only OR LGPL-3.0-only)
 use crate::annminer::{self, AnnResult};
+use ansi_term::{Colour, Style};
 use anyhow::{bail, Result};
 use core::time::Duration;
 use log::{debug, info, trace, warn};
@@ -477,6 +478,39 @@ async fn upload_batch(
     Ok(())
 }
 
+fn rate_color_format(pools: &Vec<Arc<Pool>>, rates: &Vec<u32>) -> Vec<String> {
+    let mut result = Vec::new();
+    for i in 0..pools.len() {
+        let pool = &pools[i];
+        let rate = rates[i];
+
+        // define pool and rate colors
+        let pool_style = Style::new().fg(Colour::Black).on(Colour::Cyan);
+        let percent_style = if rate < 50 {
+            Style::new().fg(Colour::Red)
+        } else if rate < 75 {
+            Style::new().fg(Colour::Yellow).bold()
+        } else {
+            Style::new().fg(Colour::Green).bold()
+        };
+
+        // get pool name without http://
+        let mut name = pool.pcli.url.clone();
+        if let Some(j) = name.find("http://") {
+            name = name[j + 7..].to_string();
+        }
+
+        // add rate string
+        let rate_string = format!(
+            "{}: {}%",
+            pool_style.paint(name),
+            percent_style.paint(rate.to_string())
+        );
+        result.push(rate_string);
+    }
+    result
+}
+
 async fn stats_loop(am: &AnnMine) {
     let mut recv_anns_per_second = {
         let mut m = am.m.lock().await;
@@ -500,7 +534,7 @@ async fn stats_loop(am: &AnnMine) {
             let mut lost_anns = Vec::new();
             let mut inflight_anns = Vec::new();
             let mut accepted_rejected_over_anns = Vec::new();
-            let mut rate = Vec::new();
+            let mut rates = Vec::new();
             for p in &am.pools {
                 let lost = p.lost_anns.swap(0, Ordering::Relaxed);
                 lost_anns.push(format!("{}", lost));
@@ -511,14 +545,13 @@ async fn stats_loop(am: &AnnMine) {
                 let over = p.overload_anns.swap(0, Ordering::Relaxed);
                 accepted_rejected_over_anns.push(format!("{}/{}/{}", accepted, rejected, over));
                 let total = lost + over + rejected + accepted;
-                rate.push(format!(
-                    "{}%",
+                rates.push(
                     ((if total > 0 {
                         accepted as f32 / total as f32
                     } else {
                         1.0
                     }) * 100.0) as u32,
-                ));
+                );
             }
 
             if kbps > 0.0 {
@@ -535,7 +568,7 @@ async fn stats_loop(am: &AnnMine) {
                         12 * am.pools.len(),
                         format!("[{}]", accepted_rejected_over_anns.join(", "))
                     ),
-                    format!("[{}]", rate.join(", "))
+                    format!("[{}]", rate_color_format(&am.pools, &rates).join(", "))
                 );
             }
             time_of_last_msg = now;
