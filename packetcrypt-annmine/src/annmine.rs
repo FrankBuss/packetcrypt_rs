@@ -502,9 +502,9 @@ fn rate_color_format(pools: &Vec<Arc<Pool>>, rates: &Vec<u32>) -> Vec<String> {
 
         // add rate string
         let rate_string = format!(
-            "{}: {}%",
+            "{}: {}",
             pool_style.paint(name),
-            percent_style.paint(rate.to_string())
+            percent_style.paint(rate.to_string() + "%")
         );
         result.push(rate_string);
     }
