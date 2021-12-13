@@ -27,6 +27,7 @@ pub struct BlkArgs {
     pub uploaders: usize,
     pub handler_pass: String,
     pub spray_cfg: Option<packetcrypt_sprayer::Config>,
+    pub warnings: bool,
 }
 
 struct FreeInfo {
@@ -673,7 +674,7 @@ fn on_work(bm: &BlkMine, next_work: &protocol::Work) {
 }
 
 pub async fn new(ba: BlkArgs) -> Result<BlkMine> {
-    let pcli = poolclient::new(&ba.pool_master, 1, 1);
+    let pcli = poolclient::new(&ba.pool_master, 1, 1, ba.warnings);
     let block_miner = BlkMiner::new(ba.max_mem as u64, ba.threads as u32)?;
     let max_anns = block_miner.max_anns;
     let spray = if let Some(sc) = &ba.spray_cfg {

@@ -55,7 +55,7 @@ async fn exiter() -> Result<()> {
     Ok(())
 }
 
-async fn ah_main(config: &str, handler: &str) -> Result<()> {
+async fn ah_main(config: &str, handler: &str, warnings: bool) -> Result<()> {
     let confb = tokio::fs::read(config)
         .await
         .with_context(|| format!("Failed to read config file [{}]", config))?;
@@ -68,7 +68,7 @@ async fn ah_main(config: &str, handler: &str) -> Result<()> {
         bail!("{} is not defined in the config file [{}]", handler, config);
     };
 
-    let pc = poolclient::new(&cfg.master_url, 6, 5);
+    let pc = poolclient::new(&cfg.master_url, 6, 5, warnings);
 
     let pmc = paymakerclient::new(
         &pc,
@@ -115,6 +115,7 @@ async fn ann_main(
     uploaders: usize,
     upload_timeout: usize,
     mine_old_anns: i32,
+    warnings: bool,
 ) -> Result<()> {
     warn_if_addr_default(payment_addr);
     let am = annmine::new(annmine::AnnMineCfg {
@@ -125,6 +126,7 @@ async fn ann_main(
         pay_to: String::from(payment_addr),
         upload_timeout,
         mine_old_anns,
+        warnings,
     })
     .await?;
     annmine::start(&am).await?;
@@ -184,6 +186,7 @@ async fn async_main(matches: clap::ArgMatches<'_>) -> Result<()> {
         let uploaders = get_usize!(ann, "uploaders");
         let upload_timeout = get_usize!(ann, "uploadtimeout");
         let mine_old_anns = get_num!(ann, "mineold", i32);
+        let warnings = ann.is_present("enable-pool-warning");
         ann_main(
             pools,
             threads,
@@ -191,13 +194,14 @@ async fn async_main(matches: clap::ArgMatches<'_>) -> Result<()> {
             uploaders,
             upload_timeout,
             mine_old_anns,
+            warnings,
         )
         .await?;
     } else if let Some(ah) = matches.subcommand_matches("ah") {
         // ann handler
         let config = get_str!(ah, "config");
         let handler = get_str!(ah, "handler");
-        ah_main(config, handler).await?;
+        ah_main(config, handler, true).await?;
     } else if let Some(blk) = matches.subcommand_matches("blk") {
         let spray_cfg = if blk.is_present("subscribe") {
             let passwd: String = get_str!(blk, "handlerpass").into();
@@ -244,6 +248,7 @@ async fn async_main(matches: clap::ArgMatches<'_>) -> Result<()> {
             uploaders: get_usize!(blk, "uploaders"),
             handler_pass: get_str!(blk, "handlerpass").into(),
             spray_cfg,
+            warnings: true,
         })
         .await?;
     } else if let Some(spray) = matches.subcommand_matches("sprayer") {
@@ -349,6 +354,14 @@ async fn main() -> Result<()> {
                         .long("mineold")
                         .help("how many blocks old to mine annoucements, -1 to let the pool decide")
                         .default_value("-1"),
+                )
+                .arg(
+                    Arg::with_name("enable-pool-warning")
+                        .short("e")
+                        .long("enable-pool-warning")
+                        .help("Enables detailed pool warnings")
+                        .required(false)
+                        .takes_value(false),
                 )
                 .arg(
                     Arg::with_name("pools")

@@ -79,6 +79,7 @@ pub struct AnnMineCfg {
     pub pay_to: String,
     pub upload_timeout: usize,
     pub mine_old_anns: i32,
+    pub warnings: bool,
 }
 
 const UPLOAD_CHANNEL_LEN: usize = 100;
@@ -98,7 +99,7 @@ pub async fn new(cfg: AnnMineCfg) -> Result<AnnMine> {
                     recent_work: [None; RECENT_WORK_BUF],
                     handlers: Vec::new(),
                 }),
-                pcli: poolclient::new(x, PREFETCH_HISTORY_DEPTH, 5),
+                pcli: poolclient::new(x, PREFETCH_HISTORY_DEPTH, 5, cfg.warnings),
                 inflight_anns: AtomicUsize::new(0),
                 lost_anns: AtomicUsize::new(0),
                 accepted_anns: AtomicUsize::new(0),
@@ -568,10 +569,12 @@ async fn uploader_loop(am: &AnnMine, p: Arc<Pool>, h: Arc<Handler>) {
                 match upload_batch(am, &client, batch, &h.url, upload_n, &p).await {
                     Ok(_) => (),
                     Err(e) => {
-                        warn!(
-                            "[{}] Error uploading ann batch to {}: {}",
-                            upload_n, h.url, e
-                        );
+                        if am.cfg.warnings {
+                            warn!(
+                                "[{}] Error uploading ann batch to {}: {}",
+                                upload_n, h.url, e
+                            );
+                        }
                         p.lost_anns.fetch_add(count, Ordering::Relaxed);
                     }
                 };

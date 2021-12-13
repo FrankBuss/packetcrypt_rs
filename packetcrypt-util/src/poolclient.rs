@@ -21,10 +21,11 @@ pub struct PoolClientS {
     poll_seconds: u64,
     notify: broadcast::Sender<PoolUpdate>,
     history_depth: i32,
+    warnings: bool,
 }
 pub type PoolClient = Arc<PoolClientS>;
 
-pub fn new(url: &str, history_depth: i32, poll_seconds: u64) -> PoolClient {
+pub fn new(url: &str, history_depth: i32, poll_seconds: u64, warnings: bool) -> PoolClient {
     let (tx, _) = broadcast::channel::<PoolUpdate>(32);
     Arc::new(PoolClientS {
         m: RwLock::new(PoolClientM {
@@ -35,6 +36,7 @@ pub fn new(url: &str, history_depth: i32, poll_seconds: u64) -> PoolClient {
         url: String::from(url),
         notify: tx,
         history_depth,
+        warnings,
     })
 }
 
@@ -72,10 +74,12 @@ async fn discover_block(pcli: &PoolClient, height: i32, hash: &[u8; 32]) -> Opti
     loop {
         let text = match util::get_url_text(&url).await {
             Err(e) => {
-                warn!(
-                    "Failed to make request to {} because {:?} retry in 5 seconds",
-                    &url, e
-                );
+                if pcli.warnings {
+                    warn!(
+                        "Failed to make request to {} because {:?} retry in 5 seconds",
+                        &url, e
+                    );
+                }
                 util::sleep_ms(5000).await;
                 continue;
             }
@@ -125,10 +129,12 @@ async fn cfg_loop(pcli: &PoolClient) {
         let url = format!("{}/config.json", pcli.url);
         let text = match util::get_url_text(&url).await {
             Err(e) => {
-                warn!(
-                    "Failed to make request to {} because {:?} retry in 5 seconds",
-                    &url, e
-                );
+                if pcli.warnings {
+                    warn!(
+                        "Failed to make request to {} because {:?} retry in 5 seconds",
+                        &url, e
+                    );
+                }
                 util::sleep_ms(5000).await;
                 continue;
             }
