@@ -288,7 +288,7 @@ fn version() -> &'static str {
 async fn main() -> Result<()> {
     // required on Windows to enable ANSI color codes
     #[cfg(target_os="windows")]
-    ansi_term::enable_ansi_support();
+    ansi_term::enable_ansi_support().unwrap();
 
     let cpus_str = format!("{}", num_cpus::get());
     let matches = App::new("packetcrypt")
